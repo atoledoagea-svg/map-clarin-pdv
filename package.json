@@ -1,0 +1,24 @@
+{
+  "name": "mapa-interactivo",
+  "version": "1.0.0",
+  "description": "Mapa interactivo con puntos de interés y horarios",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "mapa",
+    "leaflet",
+    "express",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "sql.js": "^1.10.0",
+    "xlsx": "^0.18.5"
+  }
+}
