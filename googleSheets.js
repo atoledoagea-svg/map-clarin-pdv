@@ -4,7 +4,8 @@
  * Usa la URL de exportación CSV pública de Google Sheets
  */
 
-const SHEET_ID = '13Ht_fOQuLHDMNYqKFr3FjedtU9ZkKOp_2_zCOnjHKm8';
+// Sheet ID desde variable de entorno o fallback (en producción usar solo variable de entorno)
+const SHEET_ID = process.env.GOOGLE_SHEET_ID || '13Ht_fOQuLHDMNYqKFr3FjedtU9ZkKOp_2_zCOnjHKm8';
 
 // Hojas a cargar con sus gid
 const HOJAS = [
@@ -15,8 +16,8 @@ const HOJAS = [
   { nombre: 'Anabella', gid: '2145568967' },
 ];
 
-// Base URL para exportar CSV
-const BASE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRLfaWpmwj_Hl2kHFkbAjgJiypqi4CNidmKqRyUqmdRNpVKDZNIeWU9-Vg0VCUHA0YhPtNXJFIrKOr/pub?output=csv&gid=';
+// Base URL para exportar CSV (desde variable de entorno o fallback)
+const BASE_CSV_URL = process.env.GOOGLE_SHEET_CSV_URL || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRLfaWpmwj_Hl2kHFkbAjgJiypqi4CNidmKqRyUqmdRNpVKDZNIeWU9-Vg0VCUHA0YhPtNXJFIrKOr/pub?output=csv&gid=';
 
 // Mapeo de columnas del Sheet a nuestro modelo
 const COLUMN_MAP = {
@@ -258,10 +259,10 @@ function clearCache() {
   cacheTimestamp = 0;
 }
 
+// No exportar información sensible
 module.exports = {
   getLugares,
   clearCache,
-  SHEET_ID,
-  HOJAS
+  // SHEET_ID y HOJAS no se exportan para seguridad
 };
 

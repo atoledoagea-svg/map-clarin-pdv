@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { getLugares, clearCache, SHEET_ID, HOJAS } = require('./googleSheets');
+const { getLugares, clearCache } = require('./googleSheets');
+const { authenticate, rateLimit, sanitizeResponse } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,9 +10,24 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Endpoint para servir config.js con API_KEY inyectada (antes de servir archivos estáticos)
+app.get('/config.js', (req, res) => {
+  const apiKey = process.env.API_KEY || 'clarin-secret-key-2024-change-in-production';
+  res.setHeader('Content-Type', 'application/javascript');
+  res.send(`window.API_KEY = '${apiKey}';`);
+});
+
+// Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Rate limiting global
+app.use('/api', rateLimit);
+
 // ============ API ROUTES ============
+
+// Todas las rutas de API requieren autenticación
+app.use('/api', authenticate);
 
 // Obtener todos los lugares desde Google Sheets
 app.get('/api/lugares', async (req, res) => {
@@ -47,10 +63,12 @@ app.get('/api/lugares', async (req, res) => {
       );
     }
 
-    res.json(lugares);
+    // Sanitizar respuesta (no exponer información sensible)
+    const sanitized = lugares.map(lugar => sanitizeResponse(lugar));
+    res.json(sanitized);
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -64,9 +82,11 @@ app.get('/api/lugares/:id', async (req, res) => {
       return res.status(404).json({ error: 'Lugar no encontrado' });
     }
     
-    res.json(lugar);
+    // Sanitizar respuesta
+    const sanitized = sanitizeResponse(lugar);
+    res.json(sanitized);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -99,16 +119,17 @@ app.post('/api/refresh', async (req, res) => {
       total: lugares.length 
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error refrescando cache:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-// Info del sistema
+// Info del sistema (sin información sensible)
 app.get('/api/info', (req, res) => {
   res.json({
     source: 'Google Sheets',
-    sheetId: SHEET_ID,
-    sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}`
+    version: '1.0.0',
+    // No exponer sheetId ni sheetUrl por seguridad
   });
 });
 

@@ -7,6 +7,38 @@ let filtros = { localidades: [], partidos: [], distribuidoras: [] };
 let tileLayer = null;
 let estiloMapa = 'claro';
 
+// API Key - En producción, esto debe venir de una variable de entorno o configuración segura
+// Por ahora, se puede configurar desde el servidor o usar una variable de entorno del cliente
+const API_KEY = window.API_KEY || 'clarin-secret-key-2024-change-in-production';
+
+/**
+ * Helper para hacer peticiones autenticadas a la API
+ */
+async function apiRequest(url, options = {}) {
+  const headers = {
+    'X-API-Key': API_KEY,
+    'Content-Type': 'application/json',
+    ...options.headers
+  };
+  
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+  
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('No autorizado. Verifica la API key.');
+    }
+    if (response.status === 429) {
+      throw new Error('Demasiadas solicitudes. Por favor espera un momento.');
+    }
+    throw new Error(`Error HTTP: ${response.status}`);
+  }
+  
+  return response;
+}
+
 // Filtros activos (todos son arrays)
 let filtrosActivos = {
   partidos: [],
@@ -312,7 +344,7 @@ async function cargarLugares() {
       setTimeout(() => reject(new Error('Timeout: El servidor no respondió en 30 segundos')), 30000);
     });
     
-    const fetchPromise = fetch('/api/lugares');
+    const fetchPromise = apiRequest('/api/lugares');
     const response = await Promise.race([fetchPromise, timeoutPromise]);
     
     if (!response.ok) {
@@ -353,7 +385,7 @@ async function cargarLugares() {
 
 async function cargarFiltros() {
   try {
-    const response = await fetch('/api/filtros');
+    const response = await apiRequest('/api/filtros');
     filtros = await response.json();
     
     // Llenar dropdown de partidos
@@ -608,7 +640,9 @@ function llenarGrupoCheckboxes(containerId, valores, tipo) {
 
 // ============ Renderizado ============
 function aplicarFiltros(lugar) {
-  const busqueda = document.getElementById('buscar-lugar')?.value?.toLowerCase() || '';
+  const busquedaDesktop = document.getElementById('buscar-lugar')?.value?.toLowerCase() || '';
+  const busquedaMobile = document.getElementById('mobile-buscar-lugar')?.value?.toLowerCase() || '';
+  const busqueda = busquedaDesktop || busquedaMobile;
 
   // Búsqueda por texto (incluye paquete)
   if (busqueda) {
@@ -835,6 +869,9 @@ function limpiarFiltros() {
   const buscador = document.getElementById('buscar-lugar');
   if (buscador) buscador.value = '';
   
+  const mobileBuscador = document.getElementById('mobile-buscar-lugar');
+  if (mobileBuscador) mobileBuscador.value = '';
+  
   // Resetear filtros activos
   filtrosActivos = {
     partidos: [],
@@ -883,69 +920,121 @@ function limpiarFiltros() {
 
 // ============ Autocompletado ============
 function initAutocompletado() {
+  // Autocompletado para desktop
   const input = document.getElementById('buscar-lugar');
   const suggestions = document.getElementById('search-suggestions');
   
-  if (!input || !suggestions) return;
+  if (input && suggestions) {
+    setupAutocompletado(input, suggestions);
+  }
   
+  // Autocompletado para móvil
+  const mobileInput = document.getElementById('mobile-buscar-lugar');
+  const mobileSuggestions = document.getElementById('mobile-search-suggestions');
+  
+  if (mobileInput && mobileSuggestions) {
+    setupAutocompletado(mobileInput, mobileSuggestions);
+  }
+}
+
+function setupAutocompletado(input, suggestions) {
+  // Event listener único para input que maneja sugerencias y sincronización
   input.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
+    const query = e.target.value;
+    const queryLower = query.toLowerCase().trim();
     
-    if (query.length < 2) {
+    // Sincronizar con el otro input si existe
+    if (input.id === 'buscar-lugar') {
+      const mobileInput = document.getElementById('mobile-buscar-lugar');
+      if (mobileInput && mobileInput.value !== query) {
+        mobileInput.value = query;
+      }
+    } else if (input.id === 'mobile-buscar-lugar') {
+      const desktopInput = document.getElementById('buscar-lugar');
+      if (desktopInput && desktopInput.value !== query) {
+        desktopInput.value = query;
+      }
+    }
+    
+    // Mostrar sugerencias mientras se escribe
+    if (queryLower.length < 2) {
       suggestions.classList.remove('active');
       suggestions.innerHTML = '';
+      // Aplicar filtro aunque no haya sugerencias
+      filtrarLugares();
       return;
     }
     
     // Buscar coincidencias
     const matches = lugares.filter(lugar => {
       const texto = `${lugar.nombre} ${lugar.direccion} ${lugar.localidad} ${lugar.partido} ${lugar.paquete || ''}`.toLowerCase();
-      return texto.includes(query);
+      return texto.includes(queryLower);
     }).slice(0, 8); // Máximo 8 sugerencias
     
     if (matches.length === 0) {
       suggestions.classList.remove('active');
       suggestions.innerHTML = '';
-      return;
+    } else {
+      // Mostrar sugerencias
+      suggestions.innerHTML = matches.map(lugar => `
+        <div class="search-suggestion-item" onclick="seleccionarSugerencia(${lugar.id})">
+          <div class="suggestion-name">${lugar.nombre}</div>
+          <div class="suggestion-address">${lugar.direccion}, ${lugar.localidad}</div>
+          ${lugar.paquete ? `<div class="suggestion-paquete">Paquete: ${lugar.paquete}</div>` : ''}
+        </div>
+      `).join('');
+      
+      suggestions.classList.add('active');
     }
     
-    suggestions.innerHTML = matches.map(lugar => `
-      <div class="search-suggestion-item" onclick="seleccionarSugerencia(${lugar.id})">
-        <div class="suggestion-name">${lugar.nombre}</div>
-        <div class="suggestion-address">${lugar.direccion}, ${lugar.localidad}</div>
-        ${lugar.paquete ? `<div class="suggestion-paquete">Paquete: ${lugar.paquete}</div>` : ''}
-      </div>
-    `).join('');
-    
-    suggestions.classList.add('active');
-  });
-  
-  // Cerrar sugerencias al hacer clic fuera
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-box-container')) {
-      suggestions.classList.remove('active');
-    }
+    // Aplicar filtro en tiempo real
+    filtrarLugares();
   });
   
   // Cerrar sugerencias al presionar Escape
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       suggestions.classList.remove('active');
+      if (input.id === 'mobile-buscar-lugar') {
+        toggleMobileSearchPopup();
+      }
     }
   });
+  
+  // Cerrar sugerencias al hacer clic fuera (solo para el contenedor específico)
+  const container = input.closest('.search-box-container');
+  if (container) {
+    document.addEventListener('click', (e) => {
+      if (!container.contains(e.target)) {
+        suggestions.classList.remove('active');
+      }
+    });
+  }
 }
 
 function seleccionarSugerencia(id) {
   const lugar = lugares.find(l => l.id == id);
   if (!lugar) return;
   
-  // Poner el nombre en el buscador
+  // Poner el nombre en ambos buscadores
   const input = document.getElementById('buscar-lugar');
   if (input) input.value = lugar.nombre;
+  
+  const mobileInput = document.getElementById('mobile-buscar-lugar');
+  if (mobileInput) mobileInput.value = lugar.nombre;
   
   // Cerrar sugerencias
   const suggestions = document.getElementById('search-suggestions');
   if (suggestions) suggestions.classList.remove('active');
+  
+  const mobileSuggestions = document.getElementById('mobile-search-suggestions');
+  if (mobileSuggestions) mobileSuggestions.classList.remove('active');
+  
+  // Cerrar popup móvil si está abierto
+  const popup = document.getElementById('mobile-search-popup');
+  if (popup && popup.classList.contains('active')) {
+    toggleMobileSearchPopup();
+  }
   
   // Centrar en el lugar
   if (lugar.latitud && lugar.longitud) {
@@ -2247,10 +2336,22 @@ function toggleMobileDrawer() {
   const drawer = document.getElementById('mobile-drawer');
   if (!drawer) return;
   
-  drawer.classList.toggle('active');
+  const isActive = drawer.classList.contains('active');
   
-  // Copiar contenido del sidebar al drawer si está vacío
-  if (drawer.classList.contains('active')) {
+  // Cerrar popup de búsqueda si está abierto
+  const popup = document.getElementById('mobile-search-popup');
+  if (popup && popup.classList.contains('active')) {
+    toggleMobileSearchPopup();
+  }
+  
+  if (isActive) {
+    // Cerrar drawer
+    drawer.classList.remove('active');
+  } else {
+    // Abrir drawer
+    drawer.classList.add('active');
+  
+    // Copiar contenido del sidebar al drawer si está vacío
     const drawerBody = drawer.querySelector('.mobile-drawer-body');
     const sidebar = document.querySelector('.sidebar');
     
@@ -2316,25 +2417,53 @@ function initMobileDrawerListeners() {
 }
 
 // Enfocar búsqueda móvil
-function focusMobileSearch() {
-  // Abrir drawer si está cerrado
+function toggleMobileSearchPopup() {
+  const popup = document.getElementById('mobile-search-popup');
+  if (!popup) return;
+  
+  const isActive = popup.classList.contains('active');
+  
+  // Cerrar drawer de filtros si está abierto
   const drawer = document.getElementById('mobile-drawer');
-  if (drawer && !drawer.classList.contains('active')) {
+  if (drawer && drawer.classList.contains('active')) {
     toggleMobileDrawer();
+  }
+  
+  if (isActive) {
+    // Cerrar popup
+    popup.classList.remove('active');
+    // Cerrar sugerencias
+    const mobileSuggestions = document.getElementById('mobile-search-suggestions');
+    if (mobileSuggestions) {
+      mobileSuggestions.classList.remove('active');
+    }
+  } else {
+    // Abrir popup
+    popup.classList.add('active');
     setTimeout(() => {
-      const buscador = document.querySelector('.mobile-drawer-body #buscar-lugar') || 
-                       document.getElementById('buscar-lugar');
+      const buscador = document.getElementById('mobile-buscar-lugar');
       if (buscador) {
         buscador.focus();
+        // Asegurar que el autocompletado esté inicializado
+        const mobileSuggestions = document.getElementById('mobile-search-suggestions');
+        if (mobileSuggestions && !buscador.dataset.autocompleteInit) {
+          setupAutocompletado(buscador, mobileSuggestions);
+          buscador.dataset.autocompleteInit = 'true';
+        }
       }
     }, 300);
-  } else {
-    const buscador = document.querySelector('.mobile-drawer-body #buscar-lugar') || 
-                     document.getElementById('buscar-lugar');
-    if (buscador) {
-      buscador.focus();
-    }
   }
+}
+
+function focusMobileSearch() {
+  // Cerrar drawer de filtros si está abierto
+  const drawer = document.getElementById('mobile-drawer');
+  if (drawer && drawer.classList.contains('active')) {
+    toggleMobileDrawer();
+  }
+  
+  // Abrir popup de búsqueda
+  toggleMobileSearchPopup();
 }
 
 // Toggle panel admin móvil
@@ -2405,6 +2534,7 @@ function actualizarBarraSuperiorMovil() {
 
 // Exponer funciones globalmente
 window.toggleMobileDrawer = toggleMobileDrawer;
+window.toggleMobileSearchPopup = toggleMobileSearchPopup;
 window.focusMobileSearch = focusMobileSearch;
 window.toggleMobileAdmin = toggleMobileAdmin;
 window.handleMobileExit = handleMobileExit;

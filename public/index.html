@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
 </head>
 <body>
 
@@ -403,6 +404,28 @@
     </div>
   </div>
 
+  <!-- Popup de búsqueda móvil -->
+  <div class="mobile-search-popup" id="mobile-search-popup">
+    <div class="mobile-search-overlay" onclick="toggleMobileSearchPopup()"></div>
+    <div class="mobile-search-content">
+      <div class="mobile-search-header">
+        <h2>Buscar</h2>
+        <button class="mobile-search-close" onclick="toggleMobileSearchPopup()">×</button>
+      </div>
+      <div class="mobile-search-body">
+        <div class="search-box-container">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="mobile-buscar-lugar" placeholder="Buscar por nombre, dirección o paquete..." autocomplete="off">
+          </div>
+          <div class="search-suggestions" id="mobile-search-suggestions">
+            <!-- Se llena dinámicamente -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Drawer móvil para filtros -->
   <div class="mobile-drawer" id="mobile-drawer">
     <div class="mobile-drawer-overlay" onclick="toggleMobileDrawer()"></div>
@@ -419,10 +442,6 @@
 
   <!-- Barra de navegación inferior móvil -->
   <nav class="mobile-bottom-nav">
-    <button class="mobile-nav-item" onclick="toggleMobileDrawer()" title="Filtros">
-      <div class="mobile-nav-icon mobile-nav-icon-filters">🎛️</div>
-      <span class="mobile-nav-label">FILTROS</span>
-    </button>
     <button class="mobile-nav-item" onclick="focusMobileSearch()" title="Buscar">
       <div class="mobile-nav-icon mobile-nav-icon-search">🔍</div>
       <span class="mobile-nav-label">BUSCAR</span>
@@ -431,6 +450,10 @@
       <div class="mobile-nav-icon-center">
         <img src="Clarinpng.png" alt="Clarín" class="mobile-nav-logo-img">
       </div>
+    </button>
+    <button class="mobile-nav-item" onclick="toggleMobileDrawer()" title="Filtros">
+      <div class="mobile-nav-icon mobile-nav-icon-filters">🎛️</div>
+      <span class="mobile-nav-label">FILTROS</span>
     </button>
   </nav>
 </body>
