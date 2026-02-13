@@ -18,11 +18,17 @@ app.get('/config.js', (req, res) => {
   res.send(`window.API_KEY = '${apiKey}';`);
 });
 
-// Servir archivos estáticos (solo si no estamos en Vercel)
-// En Vercel, los archivos estáticos se sirven automáticamente desde /public
-if (process.env.VERCEL !== '1') {
-  app.use(express.static(path.join(__dirname, 'public')));
-}
+// Servir archivos estáticos desde /public
+// Esto funciona tanto en desarrollo como en Vercel
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: false, // No servir index.html automáticamente
+  setHeaders: (res, filePath) => {
+    // Cache headers para archivos estáticos
+    if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 
 // En Vercel, servir index.html para rutas no encontradas (SPA fallback)
 // Solo para rutas que no sean archivos estáticos
@@ -35,9 +41,10 @@ app.get('*', (req, res, next) => {
   if (req.path === '/config.js') {
     return next();
   }
-  // Si es un archivo estático (extensión), no hacer nada (Vercel lo maneja)
+  // Si es un archivo estático (extensión), express.static ya lo manejó
+  // Si llegamos aquí y es un archivo estático, no se encontró
   if (/\.[a-zA-Z0-9]+$/.test(req.path)) {
-    return next();
+    return res.status(404).send('File not found');
   }
   // Para otras rutas (SPA), servir index.html
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
