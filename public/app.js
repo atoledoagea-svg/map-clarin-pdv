@@ -79,7 +79,10 @@ const MARKER_COLORS = {
 document.addEventListener('DOMContentLoaded', () => {
   // Esperar un momento para que config.js se cargue si está disponible
   setTimeout(() => {
+    // Inicializar mapa primero (debe funcionar incluso sin datos)
     initMap();
+    
+    // Luego cargar datos y filtros
     cargarFiltros();
     cargarLugares();
     initEventListeners();
@@ -122,30 +125,58 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initMap() {
-  // Límites del Gran Buenos Aires
-  const GBA_BOUNDS = [
-    [-35.00, -59.00], // Suroeste
-    [-34.30, -58.00]  // Noreste
-  ];
+  try {
+    // Verificar que el elemento del mapa exista
+    const mapElement = document.getElementById('map');
+    if (!mapElement) {
+      console.error('Error: No se encontró el elemento #map');
+      return;
+    }
 
-  // Centrar en Buenos Aires / Avellaneda con límites
-  map = L.map('map', {
-    zoomControl: false,
-    maxBounds: GBA_BOUNDS,        // No permite salir del GBA
-    maxBoundsViscosity: 1.0,      // Rebote suave en los bordes
-    minZoom: 10,                  // Zoom mínimo (no se puede alejar mucho)
-    maxZoom: 19                   // Zoom máximo
-  }).setView([-34.65, -58.45], 11);
+    // Verificar que Leaflet esté cargado
+    if (typeof L === 'undefined') {
+      console.error('Error: Leaflet no está cargado');
+      showError('Error: La librería del mapa no se cargó correctamente. Recarga la página.');
+      return;
+    }
 
-  // Controles de zoom
-  L.control.zoom({ position: 'bottomright' }).addTo(map);
+    // Límites del Gran Buenos Aires
+    const GBA_BOUNDS = [
+      [-35.00, -59.00], // Suroeste
+      [-34.30, -58.00]  // Noreste
+    ];
 
-  // Estilo inicial del mapa (claro)
-  tileLayer = L.tileLayer(ESTILOS_MAPA.claro.url, {
-    attribution: ESTILOS_MAPA.claro.attribution,
-    subdomains: 'abcd',
-    maxZoom: 19
-  }).addTo(map);
+    // Centrar en Buenos Aires / Avellaneda con límites
+    map = L.map('map', {
+      zoomControl: false,
+      maxBounds: GBA_BOUNDS,        // No permite salir del GBA
+      maxBoundsViscosity: 1.0,      // Rebote suave en los bordes
+      minZoom: 10,                  // Zoom mínimo (no se puede alejar mucho)
+      maxZoom: 19                   // Zoom máximo
+    }).setView([-34.65, -58.45], 11);
+
+    // Controles de zoom
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // Estilo inicial del mapa (claro)
+    tileLayer = L.tileLayer(ESTILOS_MAPA.claro.url, {
+      attribution: ESTILOS_MAPA.claro.attribution,
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Forzar actualización del tamaño del mapa después de un pequeño delay
+    setTimeout(() => {
+      if (map) {
+        map.invalidateSize();
+      }
+    }, 100);
+
+    console.log('✅ Mapa inicializado correctamente');
+  } catch (error) {
+    console.error('Error inicializando mapa:', error);
+    showError('Error al inicializar el mapa: ' + error.message);
+  }
 }
 
 // Función para cambiar modo (oscuro/claro) - afecta mapa e interfaz
@@ -489,6 +520,11 @@ function toggleDropdownItem(tipo, valor, event) {
 
 // Volver al zoom general del GBA
 function volverAZoomGeneral() {
+  if (!map) {
+    console.warn('Mapa no inicializado, intentando inicializar...');
+    initMap();
+  }
+  
   if (map) {
     map.setView([-34.65, -58.45], 11, {
       animate: true,
@@ -746,8 +782,24 @@ function renderizarLugares() {
 }
 
 function renderizarMarcadores() {
+  // Verificar que el mapa esté inicializado
+  if (!map) {
+    console.warn('Mapa no inicializado, intentando inicializar...');
+    initMap();
+    if (!map) {
+      console.error('No se pudo inicializar el mapa');
+      return;
+    }
+  }
+
   // Limpiar marcadores existentes
-  markers.forEach(marker => map.removeLayer(marker));
+  markers.forEach(marker => {
+    try {
+      map.removeLayer(marker);
+    } catch (e) {
+      console.warn('Error removiendo marcador:', e);
+    }
+  });
   markers = [];
 
   const lugaresFiltrados = lugares.filter(aplicarFiltros);
