@@ -115,9 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Cargar filtros desde URL si existen
   cargarFiltrosDesdeURL();
   
-  // Iniciar tour si es necesario
-  iniciarTourSiEsNecesario();
-  setInterval(actualizarHora, 1000);
+    // Iniciar tour si es necesario
+    iniciarTourSiEsNecesario();
+    setInterval(actualizarHora, 1000);
+  }, 100); // Pequeño delay para asegurar que config.js se haya cargado
 });
 
 function initMap() {
