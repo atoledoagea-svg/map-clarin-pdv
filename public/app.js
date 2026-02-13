@@ -77,12 +77,14 @@ const MARKER_COLORS = {
 
 // ============ Inicialización ============
 document.addEventListener('DOMContentLoaded', () => {
-  initMap();
-  cargarFiltros();
-  cargarLugares();
-  initEventListeners();
-  initAutocompletado();
-  cargarFiltrosGuardados();
+  // Esperar un momento para que config.js se cargue si está disponible
+  setTimeout(() => {
+    initMap();
+    cargarFiltros();
+    cargarLugares();
+    initEventListeners();
+    initAutocompletado();
+    cargarFiltrosGuardados();
   
   // Verificar que las funciones estén disponibles
   console.log('Funciones disponibles:', {
@@ -339,6 +341,11 @@ async function cargarLugares() {
   try {
     mostrarLoading(true);
     
+    // Verificar que la API key esté disponible
+    if (!API_KEY || API_KEY === 'clarin-secret-key-2024-change-in-production') {
+      console.warn('API Key no configurada o usando valor por defecto');
+    }
+    
     // Timeout de 30 segundos
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Timeout: El servidor no respondió en 30 segundos')), 30000);
@@ -348,13 +355,20 @@ async function cargarLugares() {
     const response = await Promise.race([fetchPromise, timeoutPromise]);
     
     if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('No autorizado. Verifica la configuración de la API key.');
+      }
+      throw new Error(errorData.message || `Error HTTP: ${response.status}`);
     }
     
     lugares = await response.json();
     
     if (!lugares || lugares.length === 0) {
       console.warn('No se recibieron lugares');
+      mostrarLoading(false);
+      showError('No se encontraron lugares. Verifica que el Sheet tenga datos.');
+      return;
     }
     
     llenarFiltrosDinamicos();
@@ -373,10 +387,12 @@ async function cargarLugares() {
     let mensaje = 'Error cargando datos. ';
     if (error.message.includes('Timeout')) {
       mensaje += 'El servidor está tardando mucho en responder. Verificá la conexión.';
-    } else if (error.message.includes('Failed to fetch')) {
-      mensaje += 'No se pudo conectar al servidor. Verificá que esté corriendo.';
+    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      mensaje += 'No se pudo conectar al servidor. Verificá que esté corriendo y que la API key esté configurada.';
+    } else if (error.message.includes('No autorizado') || error.message.includes('API key')) {
+      mensaje += error.message;
     } else {
-      mensaje += 'Verificá que el Sheet esté compartido públicamente.';
+      mensaje += error.message || 'Verificá que el Sheet esté compartido públicamente y que la API key esté configurada.';
     }
     
     showError(mensaje);
