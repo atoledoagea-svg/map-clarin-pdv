@@ -25,6 +25,7 @@ if (process.env.VERCEL !== '1') {
 }
 
 // En Vercel, servir index.html para rutas no encontradas (SPA fallback)
+// Solo para rutas que no sean archivos estáticos
 app.get('*', (req, res, next) => {
   // Si es una ruta de API, continuar
   if (req.path.startsWith('/api')) {
@@ -34,7 +35,11 @@ app.get('*', (req, res, next) => {
   if (req.path === '/config.js') {
     return next();
   }
-  // Para otras rutas, servir index.html (SPA)
+  // Si es un archivo estático (extensión), no hacer nada (Vercel lo maneja)
+  if (/\.[a-zA-Z0-9]+$/.test(req.path)) {
+    return next();
+  }
+  // Para otras rutas (SPA), servir index.html
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
