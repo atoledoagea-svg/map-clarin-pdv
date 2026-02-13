@@ -13,3 +13,4 @@
 // API Key - Se puede inyectar desde el servidor o usar variable de entorno
 window.API_KEY = window.API_KEY || process.env.API_KEY || 'clarin-secret-key-2024-change-in-production';
 
+

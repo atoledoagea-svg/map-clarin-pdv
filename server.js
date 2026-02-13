@@ -18,8 +18,25 @@ app.get('/config.js', (req, res) => {
   res.send(`window.API_KEY = '${apiKey}';`);
 });
 
-// Servir archivos estáticos
-app.use(express.static(path.join(__dirname, 'public')));
+// Servir archivos estáticos (solo si no estamos en Vercel)
+// En Vercel, los archivos estáticos se sirven automáticamente desde /public
+if (process.env.VERCEL !== '1') {
+  app.use(express.static(path.join(__dirname, 'public')));
+}
+
+// En Vercel, servir index.html para rutas no encontradas (SPA fallback)
+app.get('*', (req, res, next) => {
+  // Si es una ruta de API, continuar
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  // Si es config.js, ya está manejado arriba
+  if (req.path === '/config.js') {
+    return next();
+  }
+  // Para otras rutas, servir index.html (SPA)
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Rate limiting global
 app.use('/api', rateLimit);

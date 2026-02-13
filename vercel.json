@@ -12,9 +12,17 @@
       "dest": "/server.js"
     },
     {
+      "src": "/config.js",
+      "dest": "/server.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/public/$1"
+      "dest": "/server.js"
     }
   ]
 }
+
 

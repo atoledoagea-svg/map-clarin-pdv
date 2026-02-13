@@ -100,3 +100,4 @@ En Vercel, configura las variables de entorno en el dashboard:
 - Considera implementar autenticación de usuario adicional si necesitas control de acceso más granular
 - Para mayor seguridad, considera usar OAuth2 o JWT tokens en lugar de API keys simples
 
+

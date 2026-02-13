@@ -117,3 +117,4 @@ map/
 - Los marcadores cambian de color según si el lugar está abierto (verde) o cerrado (rojo)
 
 
+
